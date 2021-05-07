@@ -24,7 +24,9 @@ function unpack(data) {
 
 function websocket_replace(packet, dir){
 	console.log(packet, dir);
-    if (dir === "down" && packet[0] === "sb") packet[1] = ["All hail DQ", "Beep boop", "Made by SwatDoge", "Join the game to get started"][Math.floor(Math.random() * 4)]; return packet;
+    	if (dir === "down" && packet[0] === "sb") packet[1] = ["All hail DQ", "Beep boop", "Made by SwatDoge", "Join the game to get started"][Math.floor(Math.random() * 4)]; return packet;
+	
+	return packet;
 }
 
 window.WebSocket = class extends window.WebSocket {
