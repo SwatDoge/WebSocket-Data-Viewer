@@ -12,60 +12,37 @@
 
 window.msgpack = msgpack;
 
-window.wsData = {};
+let websocket_blacklist = ["t", "gmsg", "ts", "k", "l", "pi", "pir"];
 
-function parseData(data) {
-
-    if (data instanceof DataView) {
-        data = new Uint8Array(data.buffer);
-    } else if (data instanceof ArrayBuffer) {
-        data = new Uint8Array(data);
-    } else {
-        try {
-            data = JSON.parse(data);
-        } catch (err) {}
-    }
-
-    try {
-        data = msgpack.decode(data);
-    } catch (err) {}
-
-    return data;
+function unpack(data) {
+	if (data instanceof DataView) data = new Uint8Array(data.buffer);
+	else if (data instanceof ArrayBuffer) data = new Uint8Array(data);
+	else try { data = JSON.parse(data); } catch (err) {}
+	try { data = msgpack.decode(data); } catch (err) {}
+	return data;
 }
 
-window.WebSocket = new Proxy(WebSocket, {
-    construct(target, args) {
-        var ws = window.wsHook = new target(...args);
+function websocket_replace(packet, dir){
+    if (dir === "down" && packet[0] === "sb") packet[1] = ["All hail DQ", "Beep boop", "Made by SwatDoge", "Join the game to get started"][Math.floor(Math.random() * 4)]; return packet;
+}
 
-        var domain = new URL(ws.url).origin;
+window.WebSocket = class extends window.WebSocket {
+    constructor(...args){
+        super(...args);
+        this.addEventListener("open", event => {
+            let incoming = this.onmessage, outgoing = this.send;
+            function packet_modify(packet, dir){
+                let unpacked_data = unpack(packet[0].data ? packet[0].data : packet[0]), last_bytes = new Uint8Array(packet[0].data).slice(-2);
+                if (websocket_blacklist.includes(unpacked_data[0])) return packet;
+                unpacked_data = websocket_replace(unpacked_data, dir);
 
-        window.wsData[domain] = {
-            received: [],
-            sent: []
-        };
+                let l = new Uint8Array([...msgpack.encode(unpacked_data), ...last_bytes]);
+                Object.defineProperty(packet[0], "data", {get: () => l.buffer});
+                return packet;
+            }
 
-        var send = ws.send;
-
-        ws.send = function(data) {
-            var ret = send.apply(this, arguments);
-
-            data = parseData(data);
-            window.wsData[domain].sent.push(data);
-
-            console.log('Outgoing ->', data);
-
-            return ret;
-        }
-
-        ws.addEventListener('message', function(message) {
-            var data = message.data;
-
-            data = parseData(data);
-            window.wsData[domain].received.push(data);
-
-            console.log('Incoming ->', data);
+            this.onmessage = function(){return incoming.apply(this, packet_modify(arguments, "down"));}
+            this.send = function(){return outgoing.apply(this, packet_modify(arguments, "up"));}
         });
-
-        return ws;
     }
-});
+};
