@@ -33,10 +33,8 @@ function packet_modify(packet, dir){
     unpacked_data = websocket_replace(unpacked_data, dir);
 
     console.log(unpacked_data, dir);
-
-    let l = new Uint8Array([...msgpack.encode(unpacked_data), ...last_bytes]);
-
-    return l;
+	
+    return new Uint8Array([...msgpack.encode(unpacked_data), ...last_bytes]);
 }
 
 window.WebSocket = class extends window.WebSocket {
